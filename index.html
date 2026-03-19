@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>POS (NattDev)</title>
+  <script src="https://unpkg.com/html5-qrcode" defer></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f5f7;
+      --panel: #ffffff;
+      --text: #1f2937;
+      --accent: #2563eb;
+      --danger: #dc2626;
+      --ok: #059669;
+      --muted: #6b7280;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Noto Sans Thai", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    .app {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 1rem;
+    }
+
+    h1 { margin-top: 0; }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      background: var(--accent);
+      color: white;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+
+    button.secondary { background: #4b5563; }
+    button.warn { background: var(--danger); }
+    button.success { background: var(--ok); }
+
+    .tab-btn.active { background: #1d4ed8; font-weight: 600; }
+
+    .section {
+      display: none;
+      background: var(--panel);
+      border-radius: 14px;
+      padding: 1rem;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    }
+
+    .section.active { display: block; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 0.8rem;
+    }
+
+    label { display: grid; gap: 0.3rem; font-size: 0.9rem; }
+    input {
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 0.55rem;
+      font-size: 1rem;
+    }
+
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 0.8rem;
+      margin-top: 1rem;
+    }
+
+    .product-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      overflow: hidden;
+      background: white;
+    }
+
+    .product-card img {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      background: #f3f4f6;
+    }
+
+    .product-card .content { padding: 0.7rem; }
+
+    .muted { color: var(--muted); }
+    .status {
+      margin: 0.6rem 0;
+      padding: 0.6rem;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+
+    .status.ok { background: #d1fae5; color: #065f46; }
+    .status.bad { background: #fee2e2; color: #991b1b; }
+    .status.info { background: #dbeafe; color: #1e3a8a; }
+
+    #shopScanner, #adminScanner {
+      width: 100%;
+      max-width: 360px;
+      margin-top: 0.8rem;
+    }
+
+    .row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>📱 ระบบ POS (NattDev)</h1>
+    <p class="muted">Web App สำหรับลูกค้า / หน้าร้าน / หลังร้าน — เก็บข้อมูลด้วย LocalStorage</p>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="customer">ลูกค้า</button>
+      <button class="tab-btn" data-tab="shop">หน้าร้าน</button>
+      <button class="tab-btn" data-tab="admin">หลังร้าน</button>
+    </div>
+
+    <section id="customer" class="section active">
+      <h2>👤 ฝั่งลูกค้า</h2>
+      <div id="customerNotice" class="status info"></div>
+      <div id="customerProducts" class="product-grid"></div>
+    </section>
+
+    <section id="shop" class="section">
+      <h2>🏪 หน้าร้าน</h2>
+      <div id="shopLocked" class="grid">
+        <label>รหัสหน้าร้าน
+          <input id="shopPass" type="password" placeholder="กรอกรหัส Nst070509" />
+        </label>
+        <button id="shopLoginBtn">เข้าสู่หน้าร้าน</button>
+      </div>
+
+      <div id="shopPanel" style="display:none;">
+        <div id="shopNotice" class="status info"></div>
+        <div class="row">
+          <button id="startShopScan">เปิดกล้องสแกน</button>
+          <button id="stopShopScan" class="secondary">ปิดกล้อง</button>
+        </div>
+        <div id="shopScanner"></div>
+        <div id="shopResult" class="status info">รอสแกนสินค้า...</div>
+      </div>
+    </section>
+
+    <section id="admin" class="section">
+      <h2>🛠 หลังร้าน</h2>
+      <div id="adminLocked" class="grid">
+        <label>รหัสหลังร้าน
+          <input id="adminPass" type="password" placeholder="กรอกรหัส Nst070509" />
+        </label>
+        <button id="adminLoginBtn">เข้าสู่หลังร้าน</button>
+      </div>
+
+      <div id="adminPanel" style="display:none;">
+        <div id="adminNotice" class="status info"></div>
+        <h3>เพิ่มสินค้า</h3>
+        <div class="grid">
+          <label>ชื่อสินค้า<input id="name" /></label>
+          <label>ราคาต้นทุน<input id="cost" type="number" min="0" /></label>
+          <label>ราคาขาย<input id="price" type="number" min="0" /></label>
+          <label>จำนวนสินค้า<input id="stock" type="number" min="0" /></label>
+          <label>รูปสินค้า (URL)<input id="img" type="url" /></label>
+          <label>บาร์โค้ด<input id="barcode" /></label>
+        </div>
+        <div class="row" style="margin-top:0.8rem;">
+          <button id="addProduct" class="success">เพิ่มสินค้า</button>
+          <button id="toggleStore" class="warn"></button>
+        </div>
+
+        <h3>สแกนบาร์โค้ดสินค้า (ใส่ในฟอร์มอัตโนมัติ)</h3>
+        <div class="row">
+          <button id="startAdminScan">เปิดกล้องสแกน</button>
+          <button id="stopAdminScan" class="secondary">ปิดกล้อง</button>
+        </div>
+        <div id="adminScanner"></div>
+
+        <h3>รายการสินค้า</h3>
+        <div id="adminProducts" class="product-grid"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "nattdev-pos-v1";
+    const ACCESS_CODE = "Nst070509";
+
+    function defaultState() {
+      return { products: [], open: true };
+    }
+
+    function loadState() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return defaultState();
+      try {
+        const data = JSON.parse(raw);
+        return {
+          products: Array.isArray(data.products) ? data.products : [],
+          open: typeof data.open === "boolean" ? data.open : true
+        };
+      } catch {
+        return defaultState();
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    let state = loadState();
+    let shopLoggedIn = false;
+    let adminLoggedIn = false;
+    let shopScanner = null;
+    let adminScanner = null;
+
+    function fmtMoney(n) {
+      return Number(n || 0).toLocaleString("th-TH", { style: "currency", currency: "THB" });
+    }
+
+    function setStatus(id, message, type = "info") {
+      const el = document.getElementById(id);
+      el.className = `status ${type}`;
+      el.textContent = message;
+    }
+
+    function productCard(p, admin = false) {
+      return `<div class="product-card">
+        <img src="${p.img || "https://via.placeholder.com/400x300?text=No+Image"}" alt="${p.name}" />
+        <div class="content">
+          <strong>${p.name}</strong><br />
+          <span>ราคาขาย: ${fmtMoney(p.price)}</span><br />
+          ${admin ? `<span>ราคาทุน: ${fmtMoney(p.cost)}</span><br />` : ""}
+          <span>คงเหลือ: ${p.stock}</span><br />
+          ${admin ? `<span class="muted">Barcode: ${p.barcode}</span>` : ""}
+        </div>
+      </div>`;
+    }
+
+    function renderCustomer() {
+      const box = document.getElementById("customerProducts");
+      if (!state.open) {
+        setStatus("customerNotice", "ร้านปิดอยู่ชั่วคราว", "bad");
+        box.innerHTML = "";
+        return;
+      }
+      setStatus("customerNotice", "ร้านเปิดให้บริการ", "ok");
+      box.innerHTML = state.products.length
+        ? state.products.map(p => productCard(p)).join("")
+        : "<p class='muted'>ยังไม่มีสินค้า</p>";
+    }
+
+    function renderAdmin() {
+      document.getElementById("toggleStore").textContent = state.open ? "ปิดร้าน" : "เปิดร้าน";
+      setStatus("adminNotice", state.open ? "สถานะร้าน: เปิด" : "สถานะร้าน: ปิด", state.open ? "ok" : "bad");
+      document.getElementById("adminProducts").innerHTML = state.products.length
+        ? state.products.map(p => productCard(p, true)).join("")
+        : "<p class='muted'>ยังไม่มีสินค้า</p>";
+    }
+
+    function renderShop() {
+      if (!state.open) {
+        setStatus("shopNotice", "ร้านปิดอยู่: หน้าร้านใช้งานไม่ได้", "bad");
+      } else {
+        setStatus("shopNotice", "ร้านเปิด: พร้อมขายสินค้า", "ok");
+      }
+    }
+
+    function renderAll() {
+      renderCustomer();
+      renderAdmin();
+      renderShop();
+    }
+
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.tab).classList.add("active");
+      });
+    });
+
+    document.getElementById("shopLoginBtn").addEventListener("click", () => {
+      if (document.getElementById("shopPass").value !== ACCESS_CODE) {
+        alert("รหัสหน้าร้านไม่ถูกต้อง");
+        return;
+      }
+      shopLoggedIn = true;
+      document.getElementById("shopLocked").style.display = "none";
+      document.getElementById("shopPanel").style.display = "block";
+      renderShop();
+    });
+
+    document.getElementById("adminLoginBtn").addEventListener("click", () => {
+      if (document.getElementById("adminPass").value !== ACCESS_CODE) {
+        alert("รหัสหลังร้านไม่ถูกต้อง");
+        return;
+      }
+      adminLoggedIn = true;
+      document.getElementById("adminLocked").style.display = "none";
+      document.getElementById("adminPanel").style.display = "block";
+      renderAdmin();
+    });
+
+    document.getElementById("addProduct").addEventListener("click", () => {
+      if (!adminLoggedIn) return;
+      const product = {
+        name: document.getElementById("name").value.trim(),
+        cost: Number(document.getElementById("cost").value),
+        price: Number(document.getElementById("price").value),
+        stock: Number(document.getElementById("stock").value),
+        img: document.getElementById("img").value.trim(),
+        barcode: document.getElementById("barcode").value.trim()
+      };
+
+      if (!product.name || !product.barcode || Number.isNaN(product.price) || Number.isNaN(product.cost) || Number.isNaN(product.stock)) {
+        alert("กรอกข้อมูลสินค้าให้ครบ");
+        return;
+      }
+
+      state.products.push(product);
+      saveState();
+      renderAll();
+      ["name", "cost", "price", "stock", "img", "barcode"].forEach(id => document.getElementById(id).value = "");
+    });
+
+    document.getElementById("toggleStore").addEventListener("click", () => {
+      if (!adminLoggedIn) return;
+      state.open = !state.open;
+      saveState();
+      renderAll();
+    });
+
+    function handleShopScan(code) {
+      if (!state.open) {
+        setStatus("shopResult", "ร้านปิดอยู่", "bad");
+        return;
+      }
+      const item = state.products.find(p => String(p.barcode) === String(code));
+      if (!item) {
+        setStatus("shopResult", `ไม่พบสินค้า: ${code}`, "bad");
+        return;
+      }
+      if (item.stock <= 0) {
+        setStatus("shopResult", `ของหมด: ${item.name}`, "bad");
+        return;
+      }
+      item.stock -= 1;
+      saveState();
+      renderAll();
+      setStatus("shopResult", `ขายสำเร็จ: ${item.name} | คงเหลือ ${item.stock}`, "ok");
+    }
+
+    async function startScanner(targetId, onScan, existingRefName) {
+      if (!window.Html5Qrcode) {
+        alert("ไม่พบ html5-qrcode library");
+        return null;
+      }
+      const scanner = new Html5Qrcode(targetId);
+      await scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 120 } },
+        (decodedText) => {
+          onScan(decodedText);
+          scanner.pause(true);
+          setTimeout(() => scanner.resume(), 900);
+        }
+      );
+      window[existingRefName] = scanner;
+      return scanner;
+    }
+
+    async function stopScanner(refName) {
+      const scanner = window[refName];
+      if (!scanner) return;
+      try {
+        await scanner.stop();
+        await scanner.clear();
+      } catch (e) {
+        console.warn(e);
+      }
+      window[refName] = null;
+    }
+
+    document.getElementById("startShopScan").addEventListener("click", async () => {
+      if (!shopLoggedIn) return;
+      if (!state.open) {
+        setStatus("shopResult", "ร้านปิดอยู่ ไม่สามารถสแกนได้", "bad");
+        return;
+      }
+      if (shopScanner) return;
+      shopScanner = await startScanner("shopScanner", handleShopScan, "shopScanner");
+    });
+
+    document.getElementById("stopShopScan").addEventListener("click", async () => {
+      await stopScanner("shopScanner");
+      shopScanner = null;
+    });
+
+    document.getElementById("startAdminScan").addEventListener("click", async () => {
+      if (!adminLoggedIn || adminScanner) return;
+      adminScanner = await startScanner(
+        "adminScanner",
+        (code) => {
+          document.getElementById("barcode").value = code;
+          setStatus("adminNotice", `สแกนบาร์โค้ดแล้ว: ${code}`, "ok");
+        },
+        "adminScanner"
+      );
+    });
+
+    document.getElementById("stopAdminScan").addEventListener("click", async () => {
+      await stopScanner("adminScanner");
+      adminScanner = null;
+    });
+
+    renderAll();
+  </script>
+</body>
+</html>
