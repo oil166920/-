@@ -1,107 +1,43 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ฝากเงิน - ระบบพ่อครู</title>
-<style>
-body {font-family: Arial, sans-serif; background-color: #1a1a1a; color: #FFD700; margin:0; padding:0;}
-.container {max-width: 500px; margin:50px auto; padding:20px; background-color:#222; border-radius:10px; box-shadow:0 0 20px rgba(255,215,0,0.5);}
-h2 {color:#FFD700; text-align:center;}
-input, select, button {width:100%; padding:10px; margin:10px 0; border:none; border-radius:5px;}
-button {background-color:#FFD700; color:#1a1a1a; font-weight:bold; cursor:pointer;}
-button:hover {background-color:#e6c200;}
-.history {margin-top:20px; background-color:#111; padding:10px; border-radius:5px; max-height:200px; overflow-y:auto;}
-</style>
-</head>
-<body>
+# POS (NattDev)
 
-<div class="container" id="loginDiv">
-  <h2>เข้าสู่ระบบ</h2>
-  <input type="text" id="idCard" placeholder="กรอกเลขบัตรประชาชน">
-  <button id="loginBtn">เข้าสู่ระบบ</button>
-</div>
+เว็บแอป POS ที่ทำงานได้ทั้งมือถือและคอมพิวเตอร์ โดยเก็บข้อมูลใน `LocalStorage` (ไม่ต้องมีเซิร์ฟเวอร์)
 
-<div class="container" id="depositDiv" style="display:none;">
-  <h2>ฝากเงิน</h2>
+## ฟีเจอร์หลัก
 
-  <select id="accountSelect"></select>
-  <input type="number" id="depositAmount" placeholder="จำนวนเงินฝาก">
-  <button id="depositBtn">ฝากเงิน</button>
+- ลูกค้า: ดูรายการสินค้า ราคา และรูป
+- หน้าร้าน: ล็อกอินด้วยรหัส `Nst070509`, สแกนบาร์โค้ดเพื่อตัดสต็อก
+- หลังร้าน: ล็อกอินด้วยรหัส `Nst070509`, เพิ่มสินค้า, สแกนบาร์โค้ดเข้าฟอร์ม, เปิด/ปิดร้าน
+- เมื่อปิดร้าน: ลูกค้าและหน้าร้านใช้งานไม่ได้
 
-  <div class="history" id="historyDiv">
-    <strong>ประวัติการฝาก:</strong>
-    <ul id="historyList"></ul>
-  </div>
+## โครงสร้างข้อมูล
 
-  <div id="adminDiv" style="display:none;">
-    <h3>ผู้จัดการระบบ - เพิ่มบัญชี</h3>
-    <input type="text" id="newAccountName" placeholder="ชื่อบัญชี / ช่องทาง">
-    <button id="addAccountBtn">เพิ่มบัญชี</button>
-  </div>
-</div>
-
-<script>
-let accounts = [
-  "TrueMoney 063765934 (ณัฐวัตร ชูปรารมย์)",
-  "กรุงเทพ 977-0-270164 / พร้อมเพย์ 063-769-5934 (ณัฐวัตร ชูปรารมย์)",
-  "กรุงไทย 1220586870 / พร้อมเพย์ 115-9900-534708 (ณัฐวัตร ชูปรารมย์)"
-];
-
-const managerId = "1159900534708";
-
-function populateAccounts() {
-  const select = document.getElementById('accountSelect');
-  select.innerHTML = "";
-  accounts.forEach(acc => {
-    const option = document.createElement('option');
-    option.value = acc;
-    option.textContent = acc;
-    select.appendChild(option);
-  });
+```json
+{
+  "products": [
+    {
+      "name": "สินค้า",
+      "cost": 50,
+      "price": 100,
+      "stock": 10,
+      "img": "url",
+      "barcode": "123456789"
+    }
+  ],
+  "open": true
 }
+```
 
-document.getElementById('loginBtn').addEventListener('click', function() {
-  const id = document.getElementById('idCard').value.trim();
-  if(!id) { alert("กรุณากรอกเลขบัตรประชาชน"); return; }
-  document.getElementById('loginDiv').style.display = 'none';
-  document.getElementById('depositDiv').style.display = 'block';
-  populateAccounts();
+## วิธีใช้งาน
 
-  if(id === managerId) {
-    document.getElementById('adminDiv').style.display = 'block';
-    alert("เข้าสู่ระบบผู้จัดการเรียบร้อย");
-  } else {
-    alert("เข้าสู่ระบบเรียบร้อย");
-  }
-});
+เปิดไฟล์ `index.html` โดยตรง หรือรันเซิร์ฟเวอร์แบบง่าย:
 
-document.getElementById('depositBtn').addEventListener('click', function() {
-  const amount = parseFloat(document.getElementById('depositAmount').value);
-  const account = document.getElementById('accountSelect').value;
-  if(amount > 0) {
-    alert(`ฝากเงิน ${amount} บาท เข้า ${account} เรียบร้อย`);
-    const li = document.createElement('li');
-    li.textContent = `ฝาก ${amount} บาท เข้า ${account}`;
-    document.getElementById('historyList').prepend(li);
-    document.getElementById('depositAmount').value = '';
-  } else {
-    alert("กรุณากรอกจำนวนเงินที่ถูกต้อง");
-  }
-});
+```bash
+python3 -m http.server 8000
+```
 
-document.getElementById('addAccountBtn').addEventListener('click', function() {
-  const newAcc = document.getElementById('newAccountName').value.trim();
-  if(newAcc) {
-    accounts.push(newAcc);
-    populateAccounts();
-    document.getElementById('newAccountName').value = '';
-    alert(`เพิ่มบัญชี "${newAcc}" เรียบร้อย`);
-  } else {
-    alert("กรุณากรอกชื่อบัญชีใหม่");
-  }
-});
-</script>
+จากนั้นเข้า `http://localhost:8000`
 
-</body>
-</html>
+## หมายเหตุ
+
+- การสแกนบาร์โค้ดใช้ไลบรารี `html5-qrcode` จาก CDN
+- กล้องต้องใช้งานผ่านเบราว์เซอร์ที่อนุญาตการเข้าถึงกล้อง
